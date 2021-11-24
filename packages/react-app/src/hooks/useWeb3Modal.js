@@ -34,6 +34,7 @@ function useWeb3Modal(config = {}) {
   // Open wallet selection modal.
   const loadWeb3Modal = useCallback(async () => {
     const newProvider = await web3Modal.connect();
+    console.log('update')
     setProvider(new Web3Provider(newProvider));
   }, [web3Modal]);
 
@@ -47,6 +48,7 @@ function useWeb3Modal(config = {}) {
 
   // If autoLoad is enabled and the the wallet had been loaded before, load it automatically now.
   useEffect(() => {
+    console.log({autoLoad})
     if (autoLoad && !autoLoaded && web3Modal.cachedProvider) {
       loadWeb3Modal();
       setAutoLoaded(true);

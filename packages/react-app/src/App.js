@@ -1,44 +1,27 @@
-import { useQuery } from "@apollo/react-hooks";
-import { Contract } from "@ethersproject/contracts";
-import { getDefaultProvider } from "@ethersproject/providers";
-import { formatEther } from "@ethersproject/units";
+import { useQuery } from '@apollo/react-hooks';
+import { Contract } from '@ethersproject/contracts';
+// import { formatEther } from '@ethersproject/units';
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from 'react';
+import { Button, User } from '@geist-ui/react';
 
-import { Body, Button, Header, Image, Link } from "./components";
-import logo from "./ethereumLogo.png";
-import useWeb3Modal from "./hooks/useWeb3Modal";
+import { Body, Header, Image, Link } from './components';
+import Input from './components/input';
 
-import { addresses, abis } from "@project/contracts";
-import GET_TRANSFERS from "./graphql/subgraph";
+import logo from './ethereumLogo.png';
 
-async function readOnChainData(provider) {
-  // Should replace with the end-user wallet, e.g. Metamask
-  provider = getDefaultProvider();
-  console.log({provider})
-  // Create an instance of an ethers.js Contract
-  // Read more about ethers.js on https://docs.ethers.io/v5/api/contract/contract/
-  const ceaErc20 = new Contract(addresses.ceaErc20, abis.erc20, provider);
+import useWeb3Modal from './hooks/useWeb3Modal';
+import { addresses, abis } from '@project/contracts';
 
-  const name = await ceaErc20.name()
-  const symbol = await ceaErc20.symbol()
-  console.log({name,symbol})
+import GET_TRANSFERS from './graphql/subgraph';
 
-  // A pre-defined address that owns some CEAERC20 tokens
-  // const tokenBalance = await ceaErc20.balanceOf("0x3f8CB69d9c0ED01923F11c829BaE4D9a4CB6c82C");
-  const balance = await provider.getBalance('0xEEa8ef30d51afEDbF7B3B7F3Db890936dC313620')
-  const money = formatEther(balance)
-
-
-  console.log({ tokenBalance: money });
-}
-
-function WalletButton({ provider, loadWeb3Modal, logoutOfWeb3Modal }) {
-  const [account, setAccount] = useState("");
-  const [rendered, setRendered] = useState("");
+function WalletButton({ provider, loadWeb3Modal, rocketeer, setRocketeer   }) {
+  const [name, setName] = useState(null);
+  const [address, setAddress] = useState(null);
 
   useEffect(() => {
     async function fetchAccount() {
+      console.log(provider);
       try {
         if (!provider) {
           return;
@@ -46,46 +29,58 @@ function WalletButton({ provider, loadWeb3Modal, logoutOfWeb3Modal }) {
 
         // Load the user's accounts.
         const accounts = await provider.listAccounts();
-        setAccount(accounts[0]);
 
         // Resolve the ENS name for the first account.
         const name = await provider.lookupAddress(accounts[0]);
-
-        // Render either the ENS name or the shortened account address.
-        if (name) {
-          setRendered(name);
-        } else {
-          setRendered(account.substring(0, 6) + "..." + account.substring(36));
-        }
+        setName(name);
+        setAddress(accounts[0]);
       } catch (err) {
-        setAccount("");
-        setRendered("");
         console.error(err);
       }
     }
     fetchAccount();
-  }, [account, provider, setAccount, setRendered]);
+  }, [provider]);
 
-  return (
-    <Button
-      onClick={() => {
-        if (!provider) {
-          loadWeb3Modal();
-        } else {
-          logoutOfWeb3Modal();
+  useEffect(() => {
+    async function fetchRocketeer() {
+      try {
+        if (!address) {
+          return;
         }
-      }}
-    >
-      {rendered === "" && "Connect Wallet"}
-      {rendered !== "" && rendered}
-    </Button>
-  );
+        const rocketeerErc721 = new Contract(addresses.rocketeerErc721, abis.erc20, provider);
+
+        const tokenId = await rocketeerErc721.tokenOfOwnerByIndex(address, 0);
+        const rocketeerResponse = await fetch(
+          `https://rocketeer.fans/api/rocketeer/${tokenId.toString()}`
+        );
+        const data = await rocketeerResponse.json();
+        const { image } = data;
+        setRocketeer(image);
+      } catch (err) {
+        setRocketeer('');
+        console.log(err);
+      }
+    }
+    fetchRocketeer();
+    console.log('render');
+  }, [address, provider]);
+
+  if (provider && address) {
+    return (
+      <User style={{marginRight: 32}} src={rocketeer} name={name}>
+        <User.Link href={`https://etherscan.io/address/${address}`}>
+          {address.substring(0, 6) + '...' + address.substring(36)}
+        </User.Link>
+      </User>
+    );
+  }
+  return <Button style={{marginRight: 32}} onClick={() => loadWeb3Modal}>{'Connect Wallet'}</Button>;
 }
 
 function App() {
   const { loading, error, data } = useQuery(GET_TRANSFERS);
   const [provider, loadWeb3Modal, logoutOfWeb3Modal] = useWeb3Modal();
-  console.log({provider})
+  const [rocketeer, setRocketeer] = useState(null);
 
   React.useEffect(() => {
     if (!loading && !error && data && data.transfers) {
@@ -96,22 +91,16 @@ function App() {
   return (
     <div>
       <Header>
-        <WalletButton provider={provider} loadWeb3Modal={loadWeb3Modal} logoutOfWeb3Modal={logoutOfWeb3Modal} />
+        <WalletButton
+          rocketeer={rocketeer}
+          setRocketeer={setRocketeer}
+          provider={provider}
+          loadWeb3Modal={loadWeb3Modal}
+          logoutOfWeb3Modal={logoutOfWeb3Modal}
+        />
       </Header>
       <Body>
-        <Image src={logo} alt="react-logo" />
-        <p>
-          Edit <code>packages/react-app/src/App.js</code> and save to reload.
-        </p>
-        {/* Remove the "hidden" prop and open the JavaScript console in the browser to see what this function does */}
-        <Button  onClick={() => readOnChainData(provider)}>
-          Read On-Chain Balance
-        </Button>
-        <Link href="https://ethereum.org/developers/#getting-started" style={{ marginTop: "8px" }}>
-          Learn Ethereum
-        </Link>
-        <Link href="https://reactjs.org">Learn React</Link>
-        <Link href="https://thegraph.com/docs/quick-start">Learn The Graph</Link>
+        <Input disabled={!rocketeer} rocketeer={rocketeer} setRocketeer={setRocketeer} />
       </Body>
     </div>
   );
