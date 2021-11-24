@@ -1,21 +1,18 @@
-import { useQuery } from '@apollo/react-hooks';
 import { Contract } from '@ethersproject/contracts';
 // import { formatEther } from '@ethersproject/units';
 
-import React, { useEffect, useState, useMemo } from 'react';
-import { Button, User } from '@geist-ui/react';
+import React, { useEffect, useState } from 'react';
+import { Button, User, Note, Spacer, Page, Grid  } from '@geist-ui/react';
 
-import { Body, Header, Image, Link } from './components';
+// import { Body, Header, Image, Link, } from './components';
 import Input from './components/input';
 
-import logo from './ethereumLogo.png';
 
 import useWeb3Modal from './hooks/useWeb3Modal';
 import { addresses, abis } from '@project/contracts';
 
-import GET_TRANSFERS from './graphql/subgraph';
 
-function WalletButton({ provider, loadWeb3Modal, rocketeer, setRocketeer   }) {
+function WalletButton({ provider, loadWeb3Modal, rocketeer, setRocketeer }) {
   const [name, setName] = useState(null);
   const [address, setAddress] = useState(null);
 
@@ -62,48 +59,60 @@ function WalletButton({ provider, loadWeb3Modal, rocketeer, setRocketeer   }) {
       }
     }
     fetchRocketeer();
-    console.log('render');
-  }, [address, provider]);
+  }, [address, provider, setRocketeer]);
 
   if (provider && address) {
     return (
-      <User style={{marginRight: 32}} src={rocketeer} name={name}>
+      <User src={rocketeer} name={name}>
         <User.Link href={`https://etherscan.io/address/${address}`}>
           {address.substring(0, 6) + '...' + address.substring(36)}
         </User.Link>
       </User>
     );
   }
-  return <Button style={{marginRight: 32}} onClick={() => loadWeb3Modal}>{'Connect Wallet'}</Button>;
+  return <Button onClick={loadWeb3Modal}>{'Connect Wallet'}</Button>;
 }
 
 function App() {
-  const { loading, error, data } = useQuery(GET_TRANSFERS);
   const [provider, loadWeb3Modal, logoutOfWeb3Modal] = useWeb3Modal();
   const [rocketeer, setRocketeer] = useState(null);
 
-  React.useEffect(() => {
-    if (!loading && !error && data && data.transfers) {
-      console.log({ transfers: data.transfers });
-    }
-  }, [loading, error, data]);
-
   return (
-    <div>
-      <Header>
-        <WalletButton
-          rocketeer={rocketeer}
-          setRocketeer={setRocketeer}
-          provider={provider}
-          loadWeb3Modal={loadWeb3Modal}
-          logoutOfWeb3Modal={logoutOfWeb3Modal}
-        />
-      </Header>
-      <Body>
+    <Page>
+      <Page.Header>
+        <Grid.Container justify='flex-end'>
+          <Grid>
+            <Spacer h={1} />
+            <WalletButton
+              rocketeer={rocketeer}
+              setRocketeer={setRocketeer}
+              provider={provider}
+              loadWeb3Modal={loadWeb3Modal}
+              logoutOfWeb3Modal={logoutOfWeb3Modal}
+            />
+          </Grid>
+        </Grid.Container>
+      </Page.Header>
+      <Page.Content>
+        <NotAuthorized authorized={rocketeer} />
         <Input disabled={!rocketeer} rocketeer={rocketeer} setRocketeer={setRocketeer} />
-      </Body>
-    </div>
+      </Page.Content>
+    </Page>
   );
 }
 
+const NotAuthorized = ({ authorized }) => {
+  if (authorized) {
+    return null;
+  }
+  return (
+    <>
+      <Note type='error'>
+        You need a rocketeer NFT to vote. Please switch accounts or get one{' '}
+        <a href='https://mint.rocketeer.fans/'>here</a>
+      </Note>
+      <Spacer h={1} />
+    </>
+  );
+};
 export default App;
